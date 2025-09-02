@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Detective de Patogénesis</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=VT323&family=Press+Start+2P&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'VT323', monospace;
+            background-color: #1a1a1a;
+            color: #00ff00;
+            text-shadow: 0 0 5px #00ff00, 0 0 10px #00ff00;
+        }
+        .game-container, .start-screen, .report-screen {
+            border: 4px solid #00ff00;
+            box-shadow: 0 0 20px #00ff00 inset, 0 0 15px #00ff00;
+            background-color: rgba(0, 20, 0, 0.8);
+        }
+        .btn-option, .btn-action {
+            font-family: 'VT323', monospace;
+            background-color: transparent;
+            border: 2px solid #00ff00;
+            color: #00ff00;
+            text-shadow: 0 0 5px #00ff00;
+            transition: all 0.3s ease;
+        }
+        .btn-option:hover, .btn-action:hover {
+            background-color: #00ff00;
+            color: #1a1a1a;
+            box-shadow: 0 0 15px #00ff00;
+            text-shadow: none;
+        }
+        .modal-content {
+            font-family: 'VT323', monospace;
+            border: 4px solid #00ff00;
+            box-shadow: 0 0 20px #00ff00, 0 0 30px #00ff00 inset;
+            background-color: #1a1a1a;
+        }
+        input[type="text"] {
+            background-color: #111;
+            border: 2px solid #00ff00;
+            color: #00ff00;
+            padding: 8px;
+            text-align: center;
+        }
+        input[type="text"]::placeholder {
+            color: #009900;
+        }
+        #scanlines {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            background: linear-gradient(
+                to bottom,
+                rgba(0,0,0,0) 0%,
+                rgba(0,0,0,0) 98%,
+                rgba(255,255,255,0.2) 99%,
+                rgba(0,0,0,0) 100%
+            );
+            background-size: 100% 4px;
+            animation: scan 10s linear infinite;
+        }
+        @keyframes scan {
+            0% { background-position: 0 0; }
+            100% { background-position: 0 100vh; }
+        }
+        .prize-tier {
+            border: 2px dashed #ffd700;
+            color: #ffd700;
+            text-shadow: 0 0 5px #ffd700;
+        }
+    </style>
+</head>
+<body class="p-4 flex flex-col items-center justify-center min-h-screen">
+    <div id="scanlines"></div>
+
+    <!-- Pantalla de Inicio - Selección de Grupo -->
+    <div id="start-screen" class="start-screen w-full max-w-4xl p-6 rounded-lg text-center">
+        <h1 class="text-4xl md:text-5xl font-bold mb-4" style="font-family: 'Press Start 2P', cursive;">BIENVENIDO, DETECTIVE</h1>
+        <p class="text-xl mb-8">Seleccione su grupo para iniciar la misión:</p>
+        <div id="group-selection" class="grid grid-cols-2 md:grid-cols-3 gap-4 max-w-lg mx-auto">
+            <button class="btn-option p-4 text-2xl rounded-md" data-group="2-1">2-1</button>
+            <button class="btn-option p-4 text-2xl rounded-md" data-group="2-2">2-2</button>
+            <button class="btn-option p-4 text-2xl rounded-md" data-group="5-1">5-1</button>
+            <button class="btn-option p-4 text-2xl rounded-md" data-group="5-2">5-2</button>
+            <button class="btn-option p-4 text-2xl rounded-md" data-group="5-3">5-3</button>
+        </div>
+        <div class="mt-8">
+            <button id="load-progress-btn" class="btn-action p-3 text-xl rounded-md hidden">Cargar Progreso Anterior</button>
+        </div>
+        <div id="prize-info" class="mt-8 p-4 rounded-lg prize-tier">
+             <h2 class="text-2xl font-bold mb-2">SISTEMA DE PREMIACIÓN</h2>
+             <p>85% - 90% de precisión = 5 Estrellas de créditos para DreamLAB</p>
+             <p>91% - 95% de precisión = 10 Estrellas de créditos para DreamLAB</p>
+             <p>96% - 100% de precisión = 15 Estrellas de créditos para DreamLAB</p>
+        </div>
+    </div>
+
+    <!-- Pantalla Principal del Juego -->
+    <div id="game-container" class="game-container w-full max-w-4xl p-6 rounded-lg hidden">
+        <div class="text-center mb-6">
+            <h1 class="text-4xl md:text-5xl font-bold mb-2" style="font-family: 'Press Start 2P', cursive;">DETECTIVE DE PATOGÉNESIS</h1>
+            <p class="text-xl">Analiza las pistas y resuelve el caso.</p>
+        </div>
+        <div class="flex justify-between items-center mb-6 text-xl px-2">
+            <div>GRUPO: <span id="group-indicator"></span></div>
+            <div>PUNTUACIÓN: <span id="score">0</span></div>
+            <div>TIEMPO: <span id="timer">45</span>s</div>
+        </div>
+        <div id="case-container" class="bg-black bg-opacity-50 p-6 mb-6 border-2 border-dashed border-green-500 rounded-md">
+            <div class="mb-4">
+                <input type="text" id="student-name" placeholder="INGRESE SU NOMBRE, DETECTIVE" class="w-full text-xl rounded-md">
+            </div>
+            <h2 id="case-title" class="text-2xl font-bold mb-4"></h2>
+            <p id="case-description" class="text-lg leading-relaxed"></p>
+        </div>
+        <div id="options-container" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+        <div class="mt-6 text-center">
+            <button id="save-progress-btn" class="btn-action p-3 text-xl rounded-md">Guardar Progreso</button>
+        </div>
+    </div>
+    
+    <!-- Pantalla Final de Reporte -->
+    <div id="report-screen" class="report-screen w-full max-w-4xl p-6 rounded-lg hidden">
+        <div id="report-content">
+            <h1 class="text-4xl md:text-5xl font-bold mb-4 text-center" style="font-family: 'Press Start 2P', cursive;">INFORME FINAL DE MISIÓN</h1>
+            <div class="grid grid-cols-2 gap-x-8 text-2xl mb-6">
+                <p><strong>Grupo:</strong> <span id="report-group"></span></p>
+                <p><strong>Fecha:</strong> <span id="report-date"></span></p>
+                <p><strong>Puntuación Final:</strong> <span id="report-score"></span></p>
+                <p><strong>Precisión:</strong> <span id="report-accuracy"></span>%</p>
+            </div>
+             <div class="mb-6 text-xl">
+                <p><strong>Detectives Participantes:</strong> <span id="report-participants"></span></p>
+            </div>
+            <div id="prize-div" class="hidden my-6 p-4 border-4 border-dashed rounded-lg text-center prize-tier"></div>
+            <div id="report-details" class="mb-6">
+                 <h2 class="text-3xl font-bold mb-4">DESGLOSE DE RESPUESTAS</h2>
+            </div>
+            <div id="report-summary" class="mt-6">
+                <h2 class="text-3xl font-bold mb-4">ÁREAS DE OPORTUNIDAD</h2>
+                <ul id="summary-list" class="list-disc list-inside text-xl"></ul>
+            </div>
+            <div id="justification-section" class="mt-8">
+                 <h2 class="text-3xl font-bold mb-4">JUSTIFICACIÓN DE CASOS (RELACIÓN CON PDF)</h2>
+                 <div id="justification-list" class="text-lg"></div>
+            </div>
+        </div>
+         <div class="mt-8 text-center">
+            <button id="save-pdf-btn" class="btn-action p-4 text-2xl rounded-md">Guardar Informe en PDF</button>
+             <button id="restart-game-btn" class="btn-action p-4 text-2xl rounded-md mt-4">Jugar de Nuevo</button>
+        </div>
+    </div>
+
+
+    <!-- Modal de Retroalimentación -->
+    <div id="feedback-modal" class="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center p-4 hidden">
+        <div class="modal-content max-w-2xl w-full p-8 rounded-lg text-center">
+            <h2 id="feedback-title" class="text-4xl mb-4"></h2>
+            <p id="feedback-text" class="text-xl mb-6"></p>
+            <button id="next-button" class="btn-option text-2xl px-8 py-3">Continuar</button>
+        </div>
+    </div>
+    
+    <footer class="mt-8 text-center text-sm text-gray-500">
+        © 2025 | Adriana A. Barrios Rodríguez | Todos los derechos reservados
+    </footer>
+
+
+    <script>
+        const gameData = [
+            // Nivel 1: Conceptos Fundamentales
+            {
+                level: 1,
+                title: "Conceptos Fundamentales",
+                cases: [
+                    { id: "C001", title: "CASO #001: El Origen del Mal", description: "Un paciente llega con una enfermedad desconocida. Antes de investigar cómo se desarrolla, necesitas identificar la causa raíz que la provocó. ¿Qué concepto estás investigando?", options: [{ text: "Patogénesis", correct: false }, { text: "Etiología", correct: true }, { text: "Factores de Riesgo", correct: false }, { text: "Fisiopatología", correct: false }], explanation: "¡Correcto! La ETIOLOGÍA identifica las causas que provocan la enfermedad. Es el primer paso para cualquier detective médico." },
+                    { id: "C002", title: "CASO #002: La Cadena de Eventos", description: "Ahora que conoces la causa (un virus), necesitas detallar el mecanismo exacto mediante el cual este virus produce daño en el cuerpo, desde la infección inicial hasta los síntomas. ¿Qué estás describiendo?", options: [{ text: "Patogénesis", correct: true }, { text: "Etiología", correct: false }, { text: "Necrosis", correct: false }, { text: "Diagnóstico", correct: false }], explanation: "¡Exacto! La PATOGÉNESIS detalla el mecanismo por el cual las causas producen daño. Estás trazando el mapa completo de la enfermedad." },
+                    { id: "C003", title: "CASO #003: El Terreno Fértil", description: "Un paciente fumador tiene mayor probabilidad de desarrollar cáncer de pulmón que un no fumador. El tabaquismo no es la causa directa, pero influye en la susceptibilidad. ¿Cómo se clasifica el tabaquismo en este contexto?", options: [{ text: "Etiología", correct: false }, { text: "Patogénesis", correct: false }, { text: "Factor de Riesgo", correct: true }, { text: "Lesión", correct: false }], explanation: "¡Muy bien! Un FACTOR DE RIESGO, como el tabaquismo, influye en la susceptibilidad del organismo a la acción del agente etiológico, aumentando la probabilidad de enfermedad." },
+                    { id: "C004", title: "CASO #004: La Falla Funcional", description: "Una lesión en el riñón ha provocado que el órgano no pueda filtrar la sangre correctamente, causando una acumulación de toxinas. Te enfocas en las alteraciones funcionales que producen los síntomas. ¿Qué campo estás estudiando?", options: [{ text: "Etiología", correct: false }, { text: "Fisiopatología", correct: true }, { text: "Apoptosis", correct: false }, { text: "Morfología", correct: false }], explanation: "¡Preciso! La FISIOPATOLOGÍA se refiere a las alteraciones funcionales y metabólicas que resultan de las lesiones, explicando cómo la lesión se traduce en disfunción." }
+                ]
+            },
+            // Nivel 2: Fundamentos Lesionales
+            {
+                level: 2,
+                title: "Fundamentos Lesionales",
+                cases: [
+                    { id: "C005", title: "CASO #005: Muerte Celular Caótica", description: "Observas un tejido al microscopio. Hay un área de daño severo, con células hinchadas y rotas, liberando su contenido y causando una fuerte reacción a su alrededor. ¿Qué tipo de muerte celular es esta?", options: [{ text: "Apoptosis", correct: false }, { text: "Fibrosis", correct: false }, { text: "Necrosis", correct: true }, { text: "Inflamación", correct: false }], explanation: "¡Excelente observación! La NECROSIS es una muerte celular no regulada causada por un daño severo, lo que provoca una respuesta inflamatoria." },
+                    { id: "C006", title: "CASO #006: El Suicidio Silencioso", description: "En otro tejido, ves células que se encogen y se fragmentan ordenadamente, siendo eliminadas por células vecinas sin causar alarma ni desorden. El cuerpo parece estar eliminando células de forma controlada. ¿Cómo se llama este proceso?", options: [{ text: "Necrosis", correct: false }, { text: "Apoptosis", correct: true }, { text: "Inflamación", correct: false }, { text: "Fibrosis", correct: false }], explanation: "¡Preciso! La APOPTOSIS es una muerte celular programada y ordenada. Es un mecanismo crucial para mantener el equilibrio del cuerpo." },
+                    { id: "C007", title: "CASO #007: La Primera Línea de Defensa", description: "Un paciente sufre un corte. La zona se enrojece, se hincha y duele. Al microscopio, ves una infiltración masiva de células inmunitarias y vasos sanguíneos dilatados. ¿Qué proceso biológico estás presenciando?", options: [{ text: "Fibrosis", correct: false }, { text: "Isquemia", correct: false }, { text: "Inflamación", correct: true }, { text: "Apoptosis", correct: false }], explanation: "¡Correcto! La INFLAMACIÓN es la respuesta del tejido al daño o infección, implicando células inmunitarias y cambios vasculares para proteger y reparar." },
+                    { id: "C008", title: "CASO #008: La Cicatriz Excesiva", description: "Un paciente con una enfermedad hepática crónica muestra en una biopsia una acumulación excesiva de tejido conectivo en el hígado, que está reemplazando a las células funcionales y afectando su desempeño. ¿Cuál es esta lesión?", options: [{ text: "Necrosis", correct: false }, { text: "Fibrosis", correct: true }, { text: "Inflamación", correct: false }, { text: "Congestión", correct: false }], explanation: "¡Exacto! La FIBROSIS es la acumulación excesiva de tejido conectivo en respuesta a un daño crónico, lo que puede llevar a la disfunción del órgano." }
+                ]
+            },
+             // Nivel 3: Fundamentos Fisiopatológicos
+            {
+                level: 3,
+                title: "Fundamentos Fisiopatológicos",
+                cases: [
+                    { id: "C009", title: "CASO #009: Corte de Suministro", description: "Una arteria coronaria está bloqueada, impidiendo que la sangre llegue a una parte del corazón. Las células cardíacas no reciben oxígeno ni nutrientes y comienzan a morir. ¿Cómo se llama esta falta de irrigación sanguínea?", options: [{ text: "Congestión", correct: false }, { text: "Isquemia", correct: true }, { text: "Trombosis", correct: false }, { text: "Inflamación", correct: false }], explanation: "¡Diagnóstico certero! La ISQUEMIA es la reducción del flujo sanguíneo a un tejido, comprometiendo la oxigenación y nutrición celular, lo que puede llevar a la necrosis." },
+                    { id: "C010", title: "CASO #010: Fuego Interno", description: "En una enfermedad autoinmune, el sistema inmunitario del paciente ataca a sus propias células sanas, causando daño e inflamación crónica. ¿Qué tipo de alteración fisiopatológica es esta?", options: [{ text: "Desequilibrio metabólico", correct: false }, { text: "Cambio circulatorio", correct: false }, { text: "Respuesta inmunitaria desregulada", correct: true }, { text: "Alteración en señalización", correct: false }], explanation: "¡Correcto! Una RESPUESTA INMUNITARIA DESREGULADA ocurre cuando el sistema inmune reacciona de forma exacerbada o errónea, alterando el equilibrio tisular." },
+                    { id: "C011", title: "CASO #011: Radicales Libres", description: "Las mitocondrias de las células de un paciente están produciendo un exceso de moléculas reactivas de oxígeno que dañan el ADN, las proteínas y los lípidos. ¿Qué desequilibrio metabólico está ocurriendo?", options: [{ text: "Estrés oxidativo", correct: true }, { text: "Acidosis láctica", correct: false }, { text: "Hipoglucemia", correct: false }, { text: "Disfunción circulatoria", correct: false }], explanation: "¡Excelente análisis! El ESTRÉS OXIDATIVO es un desequilibrio metabólico causado por un exceso de radicales libres, lo que lleva a un daño celular generalizado." },
+                    { id: "C012", title: "CASO #012: Mensajes Confusos", description: "Las células cancerosas a menudo ignoran las señales que les ordenan dejar de crecer o morir (apoptosis). Esta falla en la comunicación celular es clave para su proliferación. ¿Qué tipo de alteración es esta?", options: [{ text: "Respuesta inmunitaria", correct: false }, { text: "Desequilibrio metabólico", correct: false }, { text: "Alteración en la señalización celular", correct: true }, { text: "Cambio circulatorio", correct: false }], explanation: "¡Precisamente! Las ALTERACIONES EN LA SEÑALIZACIÓN CELULAR son fundamentales en la patogénesis de enfermedades como el cáncer, donde las vías de comunicación normales se corrompen." }
+                ]
+            },
+            // Nivel 4: Aplicaciones Prácticas
+            {
+                level: 4,
+                title: "Aplicaciones Prácticas",
+                cases: [
+                    { id: "C013", title: "CASO #013: Buscando la Huella", description: "Al identificar una lesión clave como la glomeruloesclerosis en una biopsia renal, puedes confirmar que un paciente tiene nefropatía diabética. ¿Para qué estás utilizando tu conocimiento de la patogénesis?", options: [{ text: "Terapéutica", correct: false }, { text: "Prevención", correct: false }, { text: "Diagnóstico", correct: true }, { text: "Investigación", correct: false }], explanation: "¡Correcto! El conocimiento de las lesiones clave y mecanismos permite diseñar pruebas DIAGNÓSTICAS más sensibles y específicas." },
+                    { id: "C014", title: "CASO #014: Bloqueando al Villano", description: "Comprendes que una citocina específica (IL-6) impulsa la inflamación en la artritis reumatoide. Por ello, decides usar un fármaco que bloquea específicamente a la IL-6. ¿En qué aplicación estás usando la patogénesis?", options: [{ text: "Diagnóstico", correct: false }, { text: "Terapéutica", correct: true }, { text: "Prevención", correct: false }, { text: "Etiología", correct: false }], explanation: "¡Exacto! Comprender los procesos fisiopatológicos abre la puerta al desarrollo de tratamientos (TERAPÉUTICA) dirigidos a bloquear o revertir el daño." },
+                    { id: "C015", title: "CASO #015: Evitando la Catástrofe", description: "Sabes que la exposición al asbesto causa una fibrosis pulmonar específica. Por lo tanto, estableces medidas para que los trabajadores no se expongan a este material. ¿Qué aplicación de la patogénesis estás implementando?", options: [{ text: "Diagnóstico", correct: false }, { text: "Tratamiento", correct: false }, { text: "Prevención", correct: true }, { text: "Rehabilitación", correct: false }], explanation: "¡Muy bien! Conociendo cómo se produce la enfermedad, se pueden establecer medidas de PREVENCIÓN para interrumpir su desarrollo o evitar la exposición a factores causales." }
+                ]
+            },
+            // Nivel 5: Hematología
+            {
+                level: 5,
+                title: "Casos de Hematología",
+                cases: [
+                    { id: "C016", title: "CASO #016: El Ladrón de Hierro", description: "Un paciente con una infección crónica presenta anemia. Los análisis revelan niveles elevados de la citocina IL-6, que está inhibiendo la eritropoyesis y bloqueando el metabolismo del hierro. ¿Qué tipo de anemia es?", options: [{ text: "Anemia ferropénica", correct: false }, { text: "Anemia de enfermedad crónica", correct: true }, { text: "Anemia perniciosa", correct: false }, { text: "Anemia hemolítica", correct: false }], explanation: "¡Correcto! La ANEMIA DE ENFERMEDAD CRÓNICA es causada por la inflamación persistente, que a través de citocinas como la IL-6, altera la producción de glóbulos rojos y el metabolismo del hierro." },
+                    { id: "C017", title: "CASO #017: La Invasión Silenciosa", description: "Un paciente con cáncer de mama avanzado desarrolla fatiga extrema. Un aspirado de médula ósea revela que células tumorales han infiltrado y destruido la arquitectura medular, causando leucopenia y trombocitopenia. ¿Cuál es el fundamento lesional principal?", options: [{ text: "Inflamación crónica", correct: false }, { text: "Apoptosis masiva", correct: false }, { text: "Infiltración tumoral", correct: true }, { text: "Fibrosis medular", correct: false }], explanation: "¡Preciso! La INFILTRACIÓN TUMORAL en la médula ósea destruye el tejido hematopoyético normal, causando una falla en la producción de todas las líneas celulares sanguíneas." },
+                    { id: "C018", title: "CASO #018: Sangre Dulce, Sangre Pegajosa", description: "Un paciente diabético mal controlado no solo tiene riesgo de enfermedad renal, sino que sus plaquetas son más 'pegajosas' de lo normal, aumentando su riesgo de formar coágulos en las arterias. ¿Qué complicación hematológica se asocia a esto?", options: [{ text: "Leucopenia", correct: false }, { text: "Trombosis", correct: true }, { text: "Anemia", correct: false }, { text: "Hemofilia", correct: false }], explanation: "¡Muy bien! La diabetes puede causar alteraciones en la agregación plaquetaria, lo que aumenta significativamente el riesgo de TROMBOSIS." }
+                ]
+            },
+            // Nivel 6: Metabolismo de Lípidos, Grasas y Carbohidratos
+            {
+                level: 6,
+                title: "Casos de Metabolismo",
+                cases: [
+                    { id: "C019", title: "CASO #019: La Resistencia", description: "Un paciente con obesidad presenta niveles elevados de glucosa. La inflamación crónica asociada a su condición está haciendo que sus células no respondan adecuadamente a la insulina. ¿Cómo se llama este fenómeno?", options: [{ text: "Resistencia a la insulina", correct: true }, { text: "Hiperinsulinemia", correct: false }, { text: "Glucogenólisis", correct: false }, { text: "Lipólisis", correct: false }], explanation: "¡Exacto! La RESISTENCIA A LA INSULINA, a menudo causada por la inflamación crónica en la obesidad, es un pilar en la patogénesis de la diabetes tipo 2." },
+                    { id: "C020", title: "CASO #020: El Consumo Inexplicable", description: "Un paciente con cáncer avanzado está perdiendo peso rápidamente a pesar de comer. Sufre de un síndrome de hipermetabolismo y aumento del catabolismo de proteínas y lípidos. ¿Cómo se conoce a este síndrome?", options: [{ text: "Anorexia", correct: false }, { text: "Caquexia", correct: true }, { text: "Dislipidemia", correct: false }, { text: "Malabsorción", correct: false }], explanation: "¡Correcto! El síndrome de CAQUEXIA es una alteración metabólica sistémica provocada por algunos cánceres, caracterizada por una pérdida de peso severa y desgaste muscular." },
+                    { id: "C021", title: "CASO #021: El Perfil Peligroso", description: "Los análisis de un paciente diabético muestran un aumento de triglicéridos y LDL ('colesterol malo'), junto con una disminución de HDL ('colesterol bueno'). ¿Cómo se denomina esta combinación que favorece el daño vascular?", options: [{ text: "Hipercolesterolemia", correct: false }, { text: "Esteatosis", correct: false }, { text: "Dislipidemia aterogénica", correct: true }, { text: "Hipertrigliceridemia", correct: false }], explanation: "¡Preciso! La DISLIPIDEMIA ATEROGÉNICA es el perfil lipídico característico de la diabetes y el síndrome metabólico, y es un factor clave en la patogénesis de la aterosclerosis." }
+                ]
+            },
+            // Nivel 7: Alteraciones Renales
+            {
+                level: 7,
+                title: "Casos Renales",
+                cases: [
+                    { id: "C022", title: "CASO #022: El Riñón Cicatrizado", description: "Un paciente con una enfermedad inflamatoria crónica desarrolla insuficiencia renal. La biopsia muestra fibrosis y alteración de la función glomerular. ¿Cuál es la causa subyacente del daño renal?", options: [{ text: "Nefropatía diabética", correct: false }, { text: "Nefrotoxicidad", correct: false }, { text: "Nefropatía inflamatoria", correct: true }, { text: "Isquemia renal", correct: false }], explanation: "¡Correcto! La inflamación sostenida puede conducir a NEFROPATÍAS INFLAMATORIAS, donde la fibrosis y el daño glomerular empeoran progresivamente la función renal." },
+                    { id: "C023", title: "CASO #023: El Veneno Terapéutico", description: "Un paciente con cáncer está recibiendo quimioterapia. Comienza a mostrar signos de daño renal, afectando el equilibrio hidroelectrolítico y ácido-base. ¿Cuál es la causa más probable de esta disfunción renal aguda?", options: [{ text: "Metástasis renal", correct: false }, { text: "Nefrotoxicidad", correct: true }, { text: "Infección urinaria", correct: false }, { text: "Glomeruloesclerosis", correct: false }], explanation: "¡Exacto! Muchas quimioterapias pueden causar NEFROTOXICIDAD, un daño directo a las células renales que altera la función del órgano." },
+                    { id: "C024", title: "CASO #024: Los Nódulos Diabéticos", description: "La biopsia renal de un paciente con diabetes de larga data muestra una lesión histológica característica: una glomeruloesclerosis nodular. Esta lesión es patognomónica de ¿qué condición?", options: [{ text: "Nefritis lúpica", correct: false }, { text: "Daño por hipertensión", correct: false }, { text: "Nefropatía diabética", correct: true }, { text: "Enfermedad poliquística", correct: false }], explanation: "¡Excelente detective! La GLOMERULOESCLEROSIS NODULAR (lesiones de Kimmelstiel-Wilson) es la lesión histológica clásica de la NEFROPATÍA DIABÉTICA, que lleva a insuficiencia renal progresiva." }
+                ]
+            },
+            // Nivel 8: Alteraciones Hepáticas
+            {
+                level: 8,
+                title: "Casos Hepáticos",
+                cases: [
+                    { id: "C025", title: "CASO #025: El Hígado de Lucha", description: "La inflamación crónica en el hígado de un paciente ha activado persistentemente a los macrófagos y las células estrelladas hepáticas, llevando a fibrosis. Este proceso puede culminar en:", options: [{ text: "Hepatitis aguda", correct: false }, { text: "Cirrosis", correct: true }, { text: "Hígado graso agudo", correct: false }, { text: "Ictericia obstructiva", correct: false }], explanation: "¡Muy bien! La activación persistente de las células estrelladas por la inflamación crónica es el mecanismo clave en la patogénesis de la fibrosis hepática, que si progresa, conduce a la CIRROSIS." },
+                    { id: "C026", title: "CASO #026: La Fábrica Fallida", description: "Un paciente con metástasis hepáticas masivas presenta edemas generalizados. Los análisis muestran niveles muy bajos de albúmina en sangre. ¿Qué función hepática está fallando?", options: [{ text: "Detoxificación", correct: false }, { text: "Metabolismo lipídico", correct: false }, { text: "Síntesis de proteínas plasmáticas", correct: true }, { text: "Producción de bilis", correct: false }], explanation: "¡Análisis correcto! Los tumores hepáticos (primarios o metástasis) pueden alterar la SÍNTESIS DE PROTEÍNAS PLASMÁTICAS como la albúmina, lo que tiene repercusiones sistémicas como el edema." },
+                    { id: "C027", title: "CASO #027: El Vínculo Diabetes-Hígado", description: "Un paciente diabético desarrolla una condición asociada a la resistencia a la insulina que altera el metabolismo lipídico y aumenta el riesgo de hepatitis y cirrosis. ¿Cuál es esta condición hepática?", options: [{ text: "Hepatitis viral", correct: false }, { text: "Esteatosis hepática no alcohólica", correct: true }, { text: "Hemocromatosis", correct: false }, { text: "Enfermedad de Wilson", correct: false }], explanation: "¡Exacto! La ESTEATOSIS HEPÁTICA NO ALCOHÓLICA (hígado graso) está fuertemente asociada a la diabetes y la resistencia a la insulina, y es un factor de riesgo para enfermedades hepáticas más graves." }
+                ]
+            },
+            // Nivel 9: Alteraciones del Equilibrio Ácido-Base
+            {
+                level: 9,
+                title: "Equilibrio Ácido-Base",
+                cases: [
+                    { id: "C028", title: "CASO #028: La Acidez Sutil", description: "Un paciente con una enfermedad inflamatoria crónica y daño renal leve presenta una tendencia a la acidez en su sangre. ¿Qué alteración del equilibrio ácido-base puede inducir la inflamación crónica?", options: [{ text: "Acidosis metabólica leve", correct: true }, { text: "Alcalosis respiratoria", correct: false }, { text: "Acidosis láctica severa", correct: false }, { text: "Alcalosis metabólica", correct: false }], explanation: "¡Correcto! La inflamación crónica puede inducir una ACIDOSIS METABÓLICA LEVE, a menudo asociada con un daño renal incipiente que altera la excreción normal de ácidos." },
+                    { id: "C029", title: "CASO #029: La Deuda de Oxígeno", description: "Un paciente con un cáncer muy avanzado y en estado de shock tiene una acumulación significativa de ácido láctico en la sangre debido a la mala perfusión de los tejidos. ¿Qué tipo de acidosis presenta?", options: [{ text: "Cetoacidosis", correct: false }, { text: "Acidosis láctica", correct: true }, { text: "Acidosis respiratoria", correct: false }, { text: "Acidosis renal", correct: false }], explanation: "¡Preciso! La ACIDOSIS LÁCTICA es común en pacientes con cáncer avanzado o en shock, donde el metabolismo anaeróbico produce un exceso de lactato." },
+                    { id: "C030", title: "CASO #030: El Aliento Afrutado", description: "Un paciente con diabetes tipo 1 no se ha inyectado insulina. Llega a urgencias confundido, deshidratado y con un aliento con olor a frutas. Su sangre es extremadamente ácida. ¿Cuál es el diagnóstico?", options: [{ text: "Acidosis láctica", correct: false }, { text: "Insuficiencia renal", correct: false }, { text: "Cetoacidosis diabética", correct: true }, { text: "Hipoglucemia severa", correct: false }], explanation: "¡Diagnóstico de libro! La CETOACIDOSIS DIABÉTICA es una emergencia médica causada por la falta de insulina, que produce una acumulación masiva de cuerpos cetónicos ácidos, llevando a una acidosis metabólica grave." }
+                ]
+            }
+        ];
+        
+        const justifications = {
+            "C001": "Relacionado con la definición de Etiología (pág. 1 del PDF), que es el estudio de las causas de la enfermedad.",
+            "C002": "Evalúa el concepto de Patogénesis (pág. 1), el mecanismo por el cual se desarrolla la enfermedad.",
+            "C003": "Aborda el concepto de Factor de Riesgo, implícito en la comprensión de la etiología (pág. 1).",
+            "C004": "Corresponde a la Fisiopatología (pág. 1 y 3), que son las alteraciones funcionales de la enfermedad.",
+            "C005": "Vinculado a la Necrosis (pág. 2), un tipo de muerte celular por daño severo.",
+            "C006": "Relacionado con la Apoptosis (pág. 2), la muerte celular programada.",
+            "C007": "Explora el proceso de Inflamación (pág. 2), una respuesta al daño tisular.",
+            "C008": "Se refiere a la Fibrosis (pág. 2), la acumulación de tejido conectivo.",
+            "C009": "Evalúa la Isquemia, un concepto clave de las alteraciones circulatorias (pág. 3).",
+            "C010": "Corresponde a la Respuesta Inmunitaria Desregulada (pág. 3), fundamento de enfermedades autoinmunes.",
+            "C011": "Relacionado con el Estrés Oxidativo, un desequilibrio metabólico (pág. 3).",
+            "C012": "Aborda la Alteración en la Señalización Celular, crucial en el cáncer (pág. 3).",
+            "C013": "Aplica el conocimiento de la patogénesis al Diagnóstico (pág. 4).",
+            "C014": "Aplica el conocimiento de la patogénesis a la Terapéutica (pág. 4).",
+            "C015": "Aplica el conocimiento de la patogénesis a la Prevención (pág. 4).",
+            "C016": "Relacionado con Anemia por Enfermedad Crónica (pág. 6), causada por inflamación.",
+            "C017": "Corresponde a Infiltración Tumoral en médula ósea (pág. 6).",
+            "C018": "Vinculado a la Trombosis como complicación de la diabetes (pág. 6).",
+            "C019": "Explora la Resistencia a la Insulina en la obesidad (pág. 7).",
+            "C020": "Se refiere a la Caquexia en el cáncer, una alteración metabólica (pág. 7).",
+            "C021": "Evalúa la Dislipidemia Aterogénica en la diabetes (pág. 7).",
+            "C022": "Corresponde a la Nefropatía Inflamatoria (pág. 8).",
+            "C023": "Relacionado con la Nefrotoxicidad por quimioterapia (pág. 8).",
+            "C024": "Aborda la Nefropatía Diabética y sus lesiones características (pág. 8).",
+            "C025": "Explora la Cirrosis como resultado de la inflamación crónica hepática (pág. 9).",
+            "C026": "Se refiere a la alteración en la Síntesis de Proteínas por cáncer hepático (pág. 9).",
+            "C027": "Vinculado a la Esteatosis Hepática No Alcohólica y su relación con la diabetes (pág. 9).",
+            "C028": "Evalúa la Acidosis Metabólica Leve por inflamación crónica (pág. 10).",
+            "C029": "Corresponde a la Acidosis Láctica en el cáncer (pág. 10).",
+            "C030": "Relacionado con la Cetoacidosis Diabética (pág. 10)."
+        };
+
+
+        // State variables
+        let currentLevelIndex = 0;
+        let currentCaseIndex = 0;
+        let score = 0;
+        let selectedGroup = '';
+        let progressHistory = [];
+        let timerInterval;
+        const TIME_PER_QUESTION = 45;
+
+        // DOM Elements
+        const startScreen = document.getElementById('start-screen');
+        const gameContainer = document.getElementById('game-container');
+        const reportScreen = document.getElementById('report-screen');
+        const groupSelectionContainer = document.getElementById('group-selection');
+        const levelIndicator = document.getElementById('level-indicator');
+        const scoreElement = document.getElementById('score');
+        const timerElement = document.getElementById('timer');
+        const groupIndicator = document.getElementById('group-indicator');
+        const studentNameInput = document.getElementById('student-name');
+        const caseTitleElement = document.getElementById('case-title');
+        const caseDescriptionElement = document.getElementById('case-description');
+        const optionsContainer = document.getElementById('options-container');
+        const feedbackModal = document.getElementById('feedback-modal');
+        const feedbackTitle = document.getElementById('feedback-title');
+        const feedbackText = document.getElementById('feedback-text');
+        const nextButton = document.getElementById('next-button');
+        const saveProgressBtn = document.getElementById('save-progress-btn');
+        const loadProgressBtn = document.getElementById('load-progress-btn');
+        const savePdfBtn = document.getElementById('save-pdf-btn');
+        const restartGameBtn = document.getElementById('restart-game-btn');
+
+        
+        function initialize() {
+            // Check for saved progress
+            if (localStorage.getItem('patogenesis_progress')) {
+                loadProgressBtn.classList.remove('hidden');
+            }
+            // Event Listeners
+            groupSelectionContainer.addEventListener('click', (e) => {
+                if (e.target.tagName === 'BUTTON') {
+                    selectedGroup = e.target.dataset.group;
+                    startGame();
+                }
+            });
+            loadProgressBtn.addEventListener('click', loadProgress);
+            saveProgressBtn.addEventListener('click', saveProgress);
+            savePdfBtn.addEventListener('click', generatePDF);
+            restartGameBtn.addEventListener('click', () => {
+                reportScreen.classList.add('hidden');
+                startScreen.classList.remove('hidden');
+                localStorage.removeItem('patogenesis_progress');
+                loadProgressBtn.classList.add('hidden');
+            });
+        }
+        
+        function startGame() {
+            startScreen.classList.add('hidden');
+            gameContainer.classList.remove('hidden');
+            groupIndicator.textContent = selectedGroup;
+            currentLevelIndex = 0;
+            currentCaseIndex = 0;
+            score = 0;
+            progressHistory = [];
+            updateScore();
+            loadCase();
+        }
+
+        function loadCase() {
+            clearInterval(timerInterval);
+            studentNameInput.value = '';
+            const level = gameData[currentLevelIndex];
+            const currentCase = level.cases[currentCaseIndex];
+
+            caseTitleElement.textContent = `INFORME DEL CASO: ${currentCase.title}`;
+            caseDescriptionElement.textContent = currentCase.description;
+            
+            optionsContainer.innerHTML = '';
+            currentCase.options.forEach(option => {
+                const button = document.createElement('button');
+                button.textContent = option.text;
+                button.classList.add('btn-option', 'p-4', 'text-xl', 'rounded-md', 'w-full', 'text-left');
+                button.onclick = () => selectOption(option, currentCase);
+                optionsContainer.appendChild(button);
+            });
+            startTimer();
+        }
+
+        function startTimer() {
+            let timeLeft = TIME_PER_QUESTION;
+            timerElement.textContent = timeLeft;
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                timerElement.textContent = timeLeft;
+                if (timeLeft <= 0) {
+                    clearInterval(timerInterval);
+                    handleTimeOut();
+                }
+            }, 1000);
+        }
+
+        function handleTimeOut() {
+            const currentCase = gameData[currentLevelIndex].cases[currentCaseIndex];
+            selectOption({ text: "Sin respuesta (tiempo agotado)", correct: false }, currentCase);
+        }
+
+        function selectOption(option, currentCase) {
+            const studentName = studentNameInput.value.trim();
+
+            if (!studentName) {
+                feedbackTitle.textContent = ">>> ACCESO DENEGADO <<<";
+                feedbackTitle.style.color = "#ffcc00"; // Warning color
+                feedbackText.textContent = "Debe ingresar su nombre de detective para registrar su respuesta.";
+                nextButton.textContent = "Entendido";
+                nextButton.onclick = () => {
+                    feedbackModal.classList.add('hidden');
+                };
+                feedbackModal.classList.remove('hidden');
+                return; // Stop the function here
+            }
+
+            clearInterval(timerInterval);
+            const isCorrect = option.correct;
+
+            progressHistory.push({
+                studentName: studentName,
+                caseId: currentCase.id,
+                caseTitle: currentCase.title,
+                selectedOption: option.text,
+                isCorrect: isCorrect,
+                levelTitle: gameData[currentLevelIndex].title
+            });
+
+            if (isCorrect) {
+                score += 100;
+                feedbackTitle.textContent = ">>> ANÁLISIS CORRECTO <<<";
+                feedbackTitle.style.color = "#00ff00";
+            } else {
+                score -= 50;
+                if (score < 0) score = 0;
+                feedbackTitle.textContent = ">>> PISTA FALSA <<<";
+                feedbackTitle.style.color = "#ff0000";
+            }
+            updateScore();
+            feedbackText.textContent = currentCase.explanation;
+            
+            nextButton.textContent = "Continuar";
+            nextButton.onclick = nextCase;
+            feedbackModal.classList.remove('hidden');
+        }
+        
+        function nextCase() {
+            feedbackModal.classList.add('hidden');
+            currentCaseIndex++;
+            
+            const level = gameData[currentLevelIndex];
+            if (currentCaseIndex >= level.cases.length) {
+                currentCaseIndex = 0;
+                currentLevelIndex++;
+                if (currentLevelIndex >= gameData.length) {
+                    endGame();
+                    return;
+                }
+            }
+            loadCase();
+        }
+        
+        function endGame() {
+            gameContainer.classList.add('hidden');
+            reportScreen.classList.remove('hidden');
+            generateReport();
+        }
+
+        function generateReport() {
+            const reportDate = new Date().toLocaleDateString('es-ES');
+            document.getElementById('report-group').textContent = selectedGroup;
+            document.getElementById('report-date').textContent = reportDate;
+            document.getElementById('report-score').textContent = score;
+
+            const participants = [...new Set(progressHistory.map(item => item.studentName).filter(name => name !== "Anónimo"))].join(', ');
+            document.getElementById('report-participants').textContent = participants || 'N/A';
+            
+            const detailsContainer = document.getElementById('report-details');
+            detailsContainer.innerHTML = '<h2 class="text-3xl font-bold mb-4">DESGLOSE DE RESPUESTAS</h2>'; // Reset with title
+            const opportunities = new Set();
+            
+            progressHistory.forEach(item => {
+                const resultDiv = document.createElement('div');
+                resultDiv.className = 'mb-4 p-3 border-2 border-dashed rounded-md';
+                resultDiv.style.borderColor = item.isCorrect ? '#00ff00' : '#ff0000';
+                
+                resultDiv.innerHTML = `
+                    <p><strong>Detective:</strong> ${item.studentName}</p>
+                    <p><strong>Caso:</strong> ${item.caseTitle}</p>
+                    <p><strong>Respuesta:</strong> ${item.selectedOption} (${item.isCorrect ? 'Correcto' : 'Incorrecto'})</p>
+                `;
+                detailsContainer.appendChild(resultDiv);
+                
+                if (!item.isCorrect) {
+                    opportunities.add(item.levelTitle);
+                }
+            });
+            
+            const summaryList = document.getElementById('summary-list');
+            summaryList.innerHTML = '';
+            if (opportunities.size > 0) {
+                 opportunities.forEach(op => {
+                    const li = document.createElement('li');
+                    li.textContent = `Repasar el tema de: ${op}`;
+                    summaryList.appendChild(li);
+                });
+            } else {
+                const li = document.createElement('li');
+                li.textContent = '¡Excelente trabajo! No se detectaron áreas de oportunidad.';
+                summaryList.appendChild(li);
+            }
+
+            // Prize Logic
+            const totalQuestions = progressHistory.length;
+            const correctAnswers = progressHistory.filter(item => item.isCorrect).length;
+            const accuracy = totalQuestions > 0 ? (correctAnswers / totalQuestions) * 100 : 0;
+            document.getElementById('report-accuracy').textContent = accuracy.toFixed(1);
+
+            let stars = 0;
+            if (accuracy >= 85 && accuracy <= 90) {
+                stars = 5;
+            } else if (accuracy > 90 && accuracy <= 95) {
+                stars = 10;
+            } else if (accuracy > 95) {
+                stars = 15;
+            }
+
+            const prizeDiv = document.getElementById('prize-div');
+            if (stars > 0) {
+                prizeDiv.innerHTML = `
+                    <h2 class="text-3xl font-bold mb-2" style="font-family: 'Press Start 2P', cursive;">¡RECOMPENSA OBTENIDA!</h2>
+                    <p class="text-2xl font-bold">>> ${stars} ESTRELLAS DE CRÉDITOS PARA DreamLAB <<</p>
+                `;
+                prizeDiv.classList.remove('hidden');
+            } else {
+                 prizeDiv.classList.add('hidden');
+            }
+
+            // Justification Section
+            const justificationList = document.getElementById('justification-list');
+            justificationList.innerHTML = '';
+            gameData.forEach(level => {
+                level.cases.forEach(caseItem => {
+                    const justDiv = document.createElement('p');
+                    justDiv.innerHTML = `<strong>${caseItem.title}:</strong> ${justifications[caseItem.id] || 'Justificación no disponible.'}`;
+                    justDiv.className = 'mb-2';
+                    justificationList.appendChild(justDiv);
+                });
+            });
+        }
+
+        function saveProgress() {
+            const progress = {
+                currentLevelIndex,
+                currentCaseIndex,
+                score,
+                selectedGroup,
+                progressHistory
+            };
+            localStorage.setItem('patogenesis_progress', JSON.stringify(progress));
+            alert('¡Progreso guardado!');
+        }
+
+        function loadProgress() {
+            const savedProgress = JSON.parse(localStorage.getItem('patogenesis_progress'));
+            if (savedProgress) {
+                currentLevelIndex = savedProgress.currentLevelIndex;
+                currentCaseIndex = savedProgress.currentCaseIndex;
+                score = savedProgress.score;
+                selectedGroup = savedProgress.selectedGroup;
+                progressHistory = savedProgress.progressHistory;
+
+                startScreen.classList.add('hidden');
+                gameContainer.classList.remove('hidden');
+                groupIndicator.textContent = selectedGroup;
+                updateScore();
+                loadCase();
+            } else {
+                alert('No se encontró progreso guardado.');
+            }
+        }
+        
+        function generatePDF() {
+            const { jsPDF } = window.jspdf;
+            const reportContent = document.getElementById('report-content');
+            
+            // Temporarily make report visible for rendering if it's not
+            const wasHidden = reportScreen.classList.contains('hidden');
+            if(wasHidden) reportScreen.classList.remove('hidden');
+
+            html2canvas(reportContent, {
+                backgroundColor: '#1a1a1a',
+                scale: 2 // Improve quality
+            }).then(canvas => {
+                if(wasHidden) reportScreen.classList.add('hidden'); // Hide it back
+                const imgData = canvas.toDataURL('image/png');
+                const pdf = new jsPDF('p', 'mm', 'a4');
+                const pdfWidth = pdf.internal.pageSize.getWidth();
+                const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+                const pageHeight = pdf.internal.pageSize.getHeight();
+                let heightLeft = pdfHeight;
+                let position = 0;
+
+                pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfHeight);
+                heightLeft -= pageHeight;
+
+                while (heightLeft > 0) {
+                    position = heightLeft - pdfHeight;
+                    pdf.addPage();
+                    pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfHeight);
+                    heightLeft -= pageHeight;
+                }
+
+                pdf.save(`informe-patogenesis-grupo-${selectedGroup}.pdf`);
+            });
+        }
+
+        function updateScore() {
+            scoreElement.textContent = score;
+        }
+
+        window.onload = initialize;
+    </script>
+</body>
+</html>
+
