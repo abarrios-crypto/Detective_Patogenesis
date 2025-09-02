@@ -28,11 +28,18 @@
             text-shadow: 0 0 5px #00ff00;
             transition: all 0.3s ease;
         }
-        .btn-option:hover, .btn-action:hover {
+        .btn-option:hover:not(:disabled), .btn-action:hover {
             background-color: #00ff00;
             color: #1a1a1a;
             box-shadow: 0 0 15px #00ff00;
             text-shadow: none;
+        }
+        .btn-option:disabled {
+            border-color: #555;
+            color: #555;
+            text-shadow: none;
+            cursor: not-allowed;
+            background-color: rgba(30,30,30,0.5);
         }
         .modal-content {
             font-family: 'VT323', monospace;
@@ -175,8 +182,9 @@
 
 
     <script>
-        const gameData = [
-            // Nivel 1: Conceptos Fundamentales
+        // Advanced cases for groups 5-1, 5-2, 5-3
+        const gameDataAdvanced = [
+             // Nivel 1: Conceptos Fundamentales
             {
                 level: 1,
                 title: "Conceptos Fundamentales",
@@ -271,6 +279,29 @@
             }
         ];
         
+        // Simplified cases for groups 2-1, 2-2
+        const gameDataSimple = [
+            {
+                level: 1,
+                title: "Conceptos Fundamentales",
+                cases: [
+                    { id: "C001", title: "CASO #001: El Misterio de la Tos", description: "Imagina que tienes tos. Un detective médico quiere saber qué la causó: ¿fue un resfriado o una alergia? No le importa cómo suena tu tos, sino el 'porqué' inicial. ¿Qué está investigando?", options: [{ text: "El desarrollo del problema", correct: false }, { text: "La causa original", correct: true }, { text: "Los síntomas visibles", correct: false }, { text: "El tratamiento", correct: false }], explanation: "¡Correcto! Investigar la causa original se llama ETIOLOGÍA. Es el primer paso: encontrar al culpable.", hint: "Piensa en el punto de partida, el origen de todo el problema." },
+                    { id: "C002", title: "CASO #002: El Camino del Resfriado", description: "Ahora el detective ya sabe que la causa fue un virus. Su siguiente misión es describir el 'cómo': cómo el virus entró a tu cuerpo, viajó a tu garganta, la irritó y te hizo toser. ¿Qué está describiendo?", options: [{ text: "El mapa del problema", correct: true }, { text: "La causa original", correct: false }, { text: "La cura", correct: false }, { text: "El nombre del virus", correct: false }], explanation: "¡Exacto! Describir el mapa de cómo avanza el problema se llama PATOGÉNESIS.", hint: "No es la causa, sino la secuencia de eventos que provoca la causa." },
+                    { id: "C004", title: "CASO #004: La Falla en el Filtro", description: "Piensa en el riñón como un filtro de agua para tu cuerpo. Si el filtro se daña, deja de limpiar bien y el agua (la sangre) se ensucia. ¿Cómo llamamos a este estudio de las fallas en el funcionamiento?", options: [{ text: "Cómo se ve el filtro roto", correct: false }, { text: "Qué causó la rotura", correct: false }, { text: "Cómo falla la función de filtrar", correct: true }, { text: "Cómo arreglar el filtro", correct: false }], explanation: "¡Preciso! Estudiar las fallas en el funcionamiento se llama FISIOPATOLOGÍA. Explica por qué el órgano ya no hace bien su trabajo.", hint: "La clave está en el 'funcionamiento', no en la causa ni en la apariencia." }
+                ]
+            },
+            {
+                level: 2,
+                title: "Fundamentos Lesionales",
+                cases: [
+                    { id: "C005", title: "CASO #005: El Dedo Machucado", description: "Si te golpeas muy fuerte un dedo con un martillo, la zona se daña, se pone morada y las células mueren de forma desordenada y 'sucia' por el golpe. ¿Cómo se llama esa muerte celular 'por accidente'?", options: [{ text: "Muerte ordenada", correct: false }, { text: "Muerte accidental y caótica", correct: true }, { text: "Reparación celular", correct: false }, { text: "Infección", correct: false }], explanation: "¡Excelente! Esa muerte celular accidental y caótica se llama NECROSIS. Ocurre por un daño muy fuerte.", hint: "Es lo contrario a una muerte limpia y programada." },
+                    { id: "C006", title: "CASO #006: Hojas de Otoño", description: "En otoño, los árboles sueltan sus hojas viejas de forma natural y ordenada para dar paso a nuevas. Tu cuerpo hace algo parecido para eliminar células viejas de forma limpia. ¿Cómo se llama este proceso de 'muerte programada'?", options: [{ text: "Muerte por accidente", correct: false }, { text: "Infección", correct: false }, { text: "Muerte limpia y programada", correct: true }, { text: "Crecimiento celular", correct: false }], explanation: "¡Preciso! Esta muerte celular limpia y programada se llama APOPTOSIS. Es como una renovación del cuerpo.", hint: "Piensa en un proceso natural y sin desorden." },
+                    { id: "C007", title: "CASO #007: Rodilla Raspada", description: "Cuando te raspas la rodilla, la zona se pone roja, caliente e hinchada. Es tu cuerpo enviando 'soldados' (células de defensa) a la zona para limpiar y reparar. ¿Cómo se llama esta respuesta de emergencia?", options: [{ text: "Una cicatriz", correct: false }, { text: "La respuesta de defensa", correct: true }, { text: "La causa del raspón", correct: false }, { text: "Un moretón", correct: false }], explanation: "¡Correcto! Esta respuesta de defensa se llama INFLAMACIÓN. Es la forma en que tu cuerpo reacciona para protegerse.", hint: "Piensa en la reacción inmediata del cuerpo ante una herida." }
+                ]
+            }
+        ];
+
+
         const justifications = {
             "C001": "Relacionado con la definición de Etiología (pág. 1 del PDF), que es el estudio de las causas de la enfermedad.",
             "C002": "Evalúa el concepto de Patogénesis (pág. 1), el mecanismo por el cual se desarrolla la enfermedad.",
@@ -312,6 +343,8 @@
         let selectedGroup = '';
         let progressHistory = [];
         let timerInterval;
+        let isSecondChance = false;
+        let activeGameData;
         const TIME_PER_QUESTION = 45;
 
         // DOM Elements
@@ -319,7 +352,6 @@
         const gameContainer = document.getElementById('game-container');
         const reportScreen = document.getElementById('report-screen');
         const groupSelectionContainer = document.getElementById('group-selection');
-        const levelIndicator = document.getElementById('level-indicator');
         const scoreElement = document.getElementById('score');
         const timerElement = document.getElementById('timer');
         const groupIndicator = document.getElementById('group-indicator');
@@ -338,11 +370,9 @@
 
         
         function initialize() {
-            // Check for saved progress
             if (localStorage.getItem('patogenesis_progress')) {
                 loadProgressBtn.classList.remove('hidden');
             }
-            // Event Listeners
             groupSelectionContainer.addEventListener('click', (e) => {
                 if (e.target.tagName === 'BUTTON') {
                     selectedGroup = e.target.dataset.group;
@@ -361,6 +391,7 @@
         }
         
         function startGame() {
+            activeGameData = (selectedGroup === '2-1' || selectedGroup === '2-2') ? gameDataSimple : gameDataAdvanced;
             startScreen.classList.add('hidden');
             gameContainer.classList.remove('hidden');
             groupIndicator.textContent = selectedGroup;
@@ -374,19 +405,26 @@
 
         function loadCase() {
             clearInterval(timerInterval);
+            isSecondChance = false;
             studentNameInput.value = '';
-            const level = gameData[currentLevelIndex];
+            
+            const level = activeGameData[currentLevelIndex];
+            if (!level || !level.cases[currentCaseIndex]) {
+                endGame();
+                return;
+            }
             const currentCase = level.cases[currentCaseIndex];
 
             caseTitleElement.textContent = `INFORME DEL CASO: ${currentCase.title}`;
             caseDescriptionElement.textContent = currentCase.description;
             
             optionsContainer.innerHTML = '';
-            currentCase.options.forEach(option => {
+            currentCase.options.forEach((option, index) => {
                 const button = document.createElement('button');
                 button.textContent = option.text;
+                button.dataset.index = index;
                 button.classList.add('btn-option', 'p-4', 'text-xl', 'rounded-md', 'w-full', 'text-left');
-                button.onclick = () => selectOption(option, currentCase);
+                button.onclick = (e) => selectOption(option, currentCase, e.target);
                 optionsContainer.appendChild(button);
             });
             startTimer();
@@ -406,64 +444,75 @@
         }
 
         function handleTimeOut() {
-            const currentCase = gameData[currentLevelIndex].cases[currentCaseIndex];
-            selectOption({ text: "Sin respuesta (tiempo agotado)", correct: false }, currentCase);
+            const currentCase = activeGameData[currentLevelIndex].cases[currentCaseIndex];
+            selectOption({ text: "Sin respuesta (tiempo agotado)", correct: false }, currentCase, null);
         }
 
-        function selectOption(option, currentCase) {
+        function selectOption(option, currentCase, buttonElement) {
             const studentName = studentNameInput.value.trim();
 
             if (!studentName) {
                 feedbackTitle.textContent = ">>> ACCESO DENEGADO <<<";
-                feedbackTitle.style.color = "#ffcc00"; // Warning color
+                feedbackTitle.style.color = "#ffcc00";
                 feedbackText.textContent = "Debe ingresar su nombre de detective para registrar su respuesta.";
                 nextButton.textContent = "Entendido";
-                nextButton.onclick = () => {
-                    feedbackModal.classList.add('hidden');
-                };
+                nextButton.onclick = () => feedbackModal.classList.add('hidden');
                 feedbackModal.classList.remove('hidden');
-                return; // Stop the function here
+                return;
             }
 
             clearInterval(timerInterval);
             const isCorrect = option.correct;
-
-            progressHistory.push({
-                studentName: studentName,
-                caseId: currentCase.id,
-                caseTitle: currentCase.title,
-                selectedOption: option.text,
-                isCorrect: isCorrect,
-                levelTitle: gameData[currentLevelIndex].title
-            });
+            const isSimpleGroup = selectedGroup === '2-1' || selectedGroup === '2-2';
 
             if (isCorrect) {
                 score += 100;
                 feedbackTitle.textContent = ">>> ANÁLISIS CORRECTO <<<";
                 feedbackTitle.style.color = "#00ff00";
+                feedbackText.textContent = currentCase.explanation;
+                progressHistory.push({ studentName: studentName, caseId: currentCase.id, caseTitle: currentCase.title, selectedOption: option.text, isCorrect: true, levelTitle: activeGameData[currentLevelIndex].title });
+                nextButton.textContent = "Continuar";
+                nextButton.onclick = nextCase;
+                feedbackModal.classList.remove('hidden');
             } else {
-                score -= 50;
-                if (score < 0) score = 0;
-                feedbackTitle.textContent = ">>> PISTA FALSA <<<";
-                feedbackTitle.style.color = "#ff0000";
+                if (isSimpleGroup && !isSecondChance) {
+                    isSecondChance = true;
+                    score -= 25; // Minor penalty
+                    buttonElement.disabled = true;
+                    feedbackTitle.textContent = ">>> PISTA INCORRECTA <<<";
+                    feedbackTitle.style.color = "#ffcc00";
+                    feedbackText.innerHTML = `Esa no es la respuesta. ¡Inténtalo de nuevo!<br><br><strong>PISTA:</strong> ${currentCase.hint}`;
+                    nextButton.textContent = "Volver a Intentar";
+                    nextButton.onclick = () => {
+                        feedbackModal.classList.add('hidden');
+                        startTimer();
+                    };
+                    feedbackModal.classList.remove('hidden');
+                } else {
+                    score -= 50;
+                    feedbackTitle.textContent = ">>> PISTA FALSA <<<";
+                    feedbackTitle.style.color = "#ff0000";
+                    feedbackText.textContent = currentCase.explanation;
+                    progressHistory.push({ studentName: studentName, caseId: currentCase.id, caseTitle: currentCase.title, selectedOption: option.text, isCorrect: false, levelTitle: activeGameData[currentLevelIndex].title });
+                    nextButton.textContent = "Continuar";
+                    nextButton.onclick = nextCase;
+                    feedbackModal.classList.remove('hidden');
+                }
             }
+
+            if (score < 0) score = 0;
             updateScore();
-            feedbackText.textContent = currentCase.explanation;
-            
-            nextButton.textContent = "Continuar";
-            nextButton.onclick = nextCase;
-            feedbackModal.classList.remove('hidden');
         }
         
         function nextCase() {
             feedbackModal.classList.add('hidden');
             currentCaseIndex++;
             
-            const level = gameData[currentLevelIndex];
+            const level = activeGameData[currentLevelIndex];
             if (currentCaseIndex >= level.cases.length) {
                 currentCaseIndex = 0;
                 currentLevelIndex++;
-                if (currentLevelIndex >= gameData.length) {
+                if (currentLevelIndex >= activeGameData.length) {
                     endGame();
                     return;
                 }
@@ -483,11 +532,11 @@
             document.getElementById('report-date').textContent = reportDate;
             document.getElementById('report-score').textContent = score;
 
-            const participants = [...new Set(progressHistory.map(item => item.studentName).filter(name => name !== "Anónimo"))].join(', ');
+            const participants = [...new Set(progressHistory.map(item => item.studentName).filter(name => name))].join(', ');
             document.getElementById('report-participants').textContent = participants || 'N/A';
             
             const detailsContainer = document.getElementById('report-details');
-            detailsContainer.innerHTML = '<h2 class="text-3xl font-bold mb-4">DESGLOSE DE RESPUESTAS</h2>'; // Reset with title
+            detailsContainer.innerHTML = '<h2 class="text-3xl font-bold mb-4">DESGLOSE DE RESPUESTAS</h2>';
             const opportunities = new Set();
             
             progressHistory.forEach(item => {
@@ -495,11 +544,7 @@
                 resultDiv.className = 'mb-4 p-3 border-2 border-dashed rounded-md';
                 resultDiv.style.borderColor = item.isCorrect ? '#00ff00' : '#ff0000';
                 
-                resultDiv.innerHTML = `
-                    <p><strong>Detective:</strong> ${item.studentName}</p>
-                    <p><strong>Caso:</strong> ${item.caseTitle}</p>
-                    <p><strong>Respuesta:</strong> ${item.selectedOption} (${item.isCorrect ? 'Correcto' : 'Incorrecto'})</p>
-                `;
+                resultDiv.innerHTML = `<p><strong>Detective:</strong> ${item.studentName}</p><p><strong>Caso:</strong> ${item.caseTitle}</p><p><strong>Respuesta:</strong> ${item.selectedOption} (${item.isCorrect ? 'Correcto' : 'Incorrecto'})</p>`;
                 detailsContainer.appendChild(resultDiv);
                 
                 if (!item.isCorrect) {
@@ -521,7 +566,6 @@
                 summaryList.appendChild(li);
             }
 
-            // Prize Logic
             const totalQuestions = progressHistory.length;
             const correctAnswers = progressHistory.filter(item => item.isCorrect).length;
             const accuracy = totalQuestions > 0 ? (correctAnswers / totalQuestions) * 100 : 0;
@@ -538,35 +582,29 @@
 
             const prizeDiv = document.getElementById('prize-div');
             if (stars > 0) {
-                prizeDiv.innerHTML = `
-                    <h2 class="text-3xl font-bold mb-2" style="font-family: 'Press Start 2P', cursive;">¡RECOMPENSA OBTENIDA!</h2>
-                    <p class="text-2xl font-bold">>> ${stars} ESTRELLAS DE CRÉDITOS PARA DreamLAB <<</p>
-                `;
+                prizeDiv.innerHTML = `<h2 class="text-3xl font-bold mb-2" style="font-family: 'Press Start 2P', cursive;">¡RECOMPENSA OBTENIDA!</h2><p class="text-2xl font-bold">>> ${stars} ESTRELLAS DE CRÉDITOS PARA DreamLAB <<</p>`;
                 prizeDiv.classList.remove('hidden');
             } else {
                  prizeDiv.classList.add('hidden');
             }
 
-            // Justification Section
             const justificationList = document.getElementById('justification-list');
             justificationList.innerHTML = '';
-            gameData.forEach(level => {
-                level.cases.forEach(caseItem => {
-                    const justDiv = document.createElement('p');
-                    justDiv.innerHTML = `<strong>${caseItem.title}:</strong> ${justifications[caseItem.id] || 'Justificación no disponible.'}`;
-                    justDiv.className = 'mb-2';
-                    justificationList.appendChild(justDiv);
-                });
+            const allCases = [...gameDataAdvanced.flatMap(l => l.cases), ...gameDataSimple.flatMap(l => l.cases)];
+            const uniqueCases = [...new Map(allCases.map(item => [item['id'], item])).values()];
+            
+            uniqueCases.forEach(caseItem => {
+                const justDiv = document.createElement('p');
+                justDiv.innerHTML = `<strong>${caseItem.title}:</strong> ${justifications[caseItem.id] || 'Justificación no disponible.'}`;
+                justDiv.className = 'mb-2';
+                justificationList.appendChild(justDiv);
             });
         }
 
         function saveProgress() {
             const progress = {
-                currentLevelIndex,
-                currentCaseIndex,
-                score,
-                selectedGroup,
-                progressHistory
+                currentLevelIndex, currentCaseIndex, score, selectedGroup, progressHistory, 
+                isSimpleMode: (selectedGroup === '2-1' || selectedGroup === '2-2')
             };
             localStorage.setItem('patogenesis_progress', JSON.stringify(progress));
             alert('¡Progreso guardado!');
@@ -580,7 +618,8 @@
                 score = savedProgress.score;
                 selectedGroup = savedProgress.selectedGroup;
                 progressHistory = savedProgress.progressHistory;
-
+                activeGameData = savedProgress.isSimpleMode ? gameDataSimple : gameDataAdvanced;
+                
                 startScreen.classList.add('hidden');
                 gameContainer.classList.remove('hidden');
                 groupIndicator.textContent = selectedGroup;
@@ -595,15 +634,14 @@
             const { jsPDF } = window.jspdf;
             const reportContent = document.getElementById('report-content');
             
-            // Temporarily make report visible for rendering if it's not
             const wasHidden = reportScreen.classList.contains('hidden');
             if(wasHidden) reportScreen.classList.remove('hidden');
 
             html2canvas(reportContent, {
                 backgroundColor: '#1a1a1a',
-                scale: 2 // Improve quality
+                scale: 2
             }).then(canvas => {
-                if(wasHidden) reportScreen.classList.add('hidden'); // Hide it back
+                if(wasHidden) reportScreen.classList.add('hidden');
                 const imgData = canvas.toDataURL('image/png');
                 const pdf = new jsPDF('p', 'mm', 'a4');
                 const pdfWidth = pdf.internal.pageSize.getWidth();
